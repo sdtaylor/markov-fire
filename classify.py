@@ -35,7 +35,7 @@ t_matrix.sort_values('t1', 0, inplace=True)
 t_matrix.fillna(0, inplace=True)
 t_matrix.drop('t1', 1, inplace=True)
 
-catagories=t_matrix.columns.values
+catagories=t_matrix.columns.values.astype(np.int)
 num_catagories=len(catagories)
 
 #A numpy array to do the actual calculations
@@ -43,7 +43,7 @@ t_matrix=t_matrix.values
 
 #Read in a list of rasters and stack them into a single array. (rows x column x numRasters)
 def stackImages(fileList):
-    fullYear=gdalnumeric.LoadFile(fileList[0])
+    fullYear=gdalnumeric.LoadFile(fileList[0]).astype(np.int)
     for thisImage in fileList[1:]:
         image=gdalnumeric.LoadFile(thisImage)
         fullYear=np.dstack((fullYear, image))
@@ -53,18 +53,19 @@ def stackImages(fileList):
 #print(t_matrix, t_matrix.shape)
 #Given some 2d array of catagorical data. compute the composition. essentially percent cover
 #a = 2d array, num_c=number of possible catagories
-def get_composition(a, num_c):
-    hist, edges=np.histogram(a, bins=num_c)
-    hist=hist/np.product(a.shape)
-    return(hist)
+def get_composition(a, catagories):
+    composition=[]
+    for c in catagories:
+        composition.append(np.sum(a==c))
+    composition=np.array(composition)/np.product(a.shape)
+    return(composition)
 
 #Run a markov model given a set of initial conditions and timesteps
 #return a timeseries of community composition
 def run_model(model, initials, timesteps):
     results=np.empty([num_catagories, timesteps])
     current_state=initials.copy()
-    results[:,0]=current_state
-    for t in range(1,timesteps):
+    for t in range(timesteps):
         current_state=np.dot(model, current_state)
         results[:,t]=current_state
     return(results)
@@ -80,9 +81,11 @@ def create_spatial_scale_indexes(template_raster, sp_scales):
         i={}
         i['step_size']=this_scale
         i['row_start']=0
-        i['row_end']=int(np.floor(nrow/this_scale)*this_scale)
+        #i['row_end']=int(np.floor(nrow/this_scale)*this_scale)
+        i['row_end']=this_scale
         i['col_start']=0
-        i['col_end']=int(np.floor(ncol/this_scale)*this_scale)
+        #i['col_end']=int(np.floor(ncol/this_scale)*this_scale)
+        i['col_end']=this_scale
         i['num_replicates']=int(np.floor(ncol/this_scale) * np.floor(nrow/this_scale)) #How many 'boxes' of this size are in the raster?
         to_return[this_scale]=i
     return(to_return)
@@ -107,7 +110,7 @@ all_training_years=stackImages(file_list)
 #Total years in the timeseries
 num_years=13
 #1st year will be used as the initial values
-year_0=all_training_years[:,:,0].copy()
+year_0=all_training_years[:,:,0]
 #2nd year onwards will be validation
 validation=all_training_years[:,:,1:]
 
@@ -119,7 +122,11 @@ for this_temporal_scale in temporal_scales:
         step=sp_info['step_size']
         #Num replicates = number of squares of size spatial_scale x spatial_scale that can fit into the raster
         for this_replicate in range(sp_info['num_replicates']):
-            initial=year_0[row_start:row_end, col_start:col_end].copy()
-            initial=get_composition(initial, this_temporal_scale)
-            predictions=run_model(t_matrix, get_composition(initial, num_catagories), num_years)
-print(apply_temporal_scale(predictions, 4))
+            initial=year_0[row_start:10, col_start:10]
+            initial=get_composition(initial, catagories)
+            predictions=run_model(t_matrix, initial, num_years-1)
+            #up the start stop y the step size
+            row_start+=step
+            row_end+=step
+            col_start+=step
+            col_end+=step
