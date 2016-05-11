@@ -92,14 +92,12 @@ def create_spatial_scale_indexes(template_raster, sp_scales):
     ncol=template_raster.shape[1]
     for this_scale in sp_scales:
         i={}
-        i['step_size']=this_scale
-        i['row_start']=0
-        #i['row_end']=int(np.floor(nrow/this_scale)*this_scale)
-        i['row_end']=this_scale
-        i['col_start']=0
-        #i['col_end']=int(np.floor(ncol/this_scale)*this_scale)
-        i['col_end']=this_scale
-        i['num_replicates']=int(np.floor(ncol/this_scale) * np.floor(nrow/this_scale)) #How many 'boxes' of this size are in the raster?
+        max_squares_col=int(np.floor(ncol/this_scale))
+        max_squares_row   =int(np.floor(nrow/this_scale))
+        #The endpoints for all squares for this spatial scale
+        i['col_breaks']=(np.arange(1, max_squares_col+1) * this_scale).tolist()
+        i['row_breaks']=(np.arange(1, max_squares_row+1) * this_scale).tolist()
+        i['num_replicates']=max_squares_col*max_squares_row #How many 'boxes' of this size are in the raster?
         to_return[this_scale]=i
     return(to_return)
 
@@ -165,43 +163,41 @@ all_results=[]
 for this_temporal_scale in temporal_scales:
     #This iterates over the spatial scales with info about them defined in the function.
     for this_spatial_scale, sp_info in create_spatial_scale_indexes(year_0, spatial_scales).items():
-        row_start, row_end, col_start, col_end = sp_info['row_start'], sp_info['row_end'], sp_info['col_start'], sp_info['col_end']
-        step=sp_info['step_size']
+        replicate=0
         #Num replicates = number of squares of size spatial_scale x spatial_scale that can fit into the raster
-        for this_replicate in range(sp_info['num_replicates']):
-            initial=year_0[row_start:row_end, col_start:col_end]
-            initial=get_composition(initial, catagories)
+        for row_end in sp_info['row_breaks']:
+            for col_end in sp_info['col_breaks']:
+                row_start=row_end-this_spatial_scale
+                col_start=col_end-this_spatial_scale
 
-            predictions=run_model(t_matrix, initial, num_years-1)
+                initial=year_0[row_start:row_end, col_start:col_end]
+                initial=get_composition(initial, catagories)
 
-            obs_all_years=validation[row_start:row_end, col_start:col_end, :]
-            obs_all_years=get_composition(obs_all_years, catagories, num_years-1)
+                predictions=run_model(t_matrix, initial, num_years-1)
+
+                obs_all_years=validation[row_start:row_end, col_start:col_end, :]
+                obs_all_years=get_composition(obs_all_years, catagories, num_years-1)
 
 
-            predictions=apply_temporal_scale(predictions, this_temporal_scale)
-            obs_all_years=apply_temporal_scale(obs_all_years, this_temporal_scale)
+                predictions=apply_temporal_scale(predictions, this_temporal_scale)
+                obs_all_years=apply_temporal_scale(obs_all_years, this_temporal_scale)
 
-            metrics=evaluate(obs_all_years, predictions)
+                metrics=evaluate(obs_all_years, predictions)
 
-            if np.isnan(metrics[0]['r2']):
-                print(year_0.shape)
-                print(year_0[row_start:row_end, col_start:col_end])
-                print(predictions)
-                print(row_start, row_end, col_start, col_end)
-                exit()
-            #Add in scale info for these results
-            for  i in metrics:
-                i['temporal_scale']=this_temporal_scale
-                i['spatial_scale']=this_spatial_scale
-                i['replicate']=this_replicate
+                if np.isnan(metrics[0]['r2']):
+                    print(year_0.shape)
+                    print(year_0[row_start:row_end, col_start:col_end])
+                    print(predictions)
+                    print(row_start, row_end, col_start, col_end)
+                    exit()
+                #Add in scale info for these results
+                for  i in metrics:
+                    i['temporal_scale']=this_temporal_scale
+                    i['spatial_scale']=this_spatial_scale
+                    i['replicate']=replicate
 
-            all_results.extend(metrics)
-
-            #Up the indexes for the next spatial recpliate
-            row_start+=step
-            row_end+=step
-            col_start+=step
-            col_end+=step
+                replicate+=1
+                all_results.extend(metrics)
 
 all_results=pd.DataFrame(all_results)
 all_results.to_csv('results.csv', index=False)
