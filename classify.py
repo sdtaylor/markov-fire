@@ -10,6 +10,8 @@ training_data=pd.read_csv('./data/training.csv')
 
 spatial_scales=[1,2,5,10,20,30,40,50]
 temporal_scales=[1,2,3,4,5]
+#spatial_scales=[40,50]
+#temporal_scales=[3,4,5]
 #print(training_data[training_data['t']==0].groupby('t1').count().reset_index())
 #print(np.unique(training_data['t1'][training_data['t']==0].values, return_counts=True))
 #exit()
@@ -124,7 +126,7 @@ def mse(observed, predicted):
 
 #Euclidean distance
 def eucl_dist(observed, predicted):
-    return(np.sqrt((observed-predicted)**2))
+    return(np.sqrt(  np.sum( (observed-predicted)**2) ) )
 
 #R^2 of the 1:1 line
 def r2(obs, pred):
@@ -139,8 +141,9 @@ def evaluate(obs, pred):
        results_this_timestep={}
        results_this_timestep['mse']=mse(obs[:,this_col], pred[:,this_col])
        results_this_timestep['eucl_dist']=eucl_dist(obs[:,this_col], pred[:,this_col])
-       results_this_timestep['rs']=r2(obs[:,this_col], pred[:,this_col])
+       results_this_timestep['r2']=r2(obs[:,this_col], pred[:,this_col])
        results_this_timestep['timestep']=this_col+1
+       all_timestep_results.append(results_this_timestep)
 
     return(all_timestep_results)
 
@@ -157,7 +160,7 @@ year_0=all_training_years[:,:,0]
 #2nd year onwards will be validation
 validation=all_training_years[:,:,1:]
 
-all_results=pd.DataFrame()
+all_results=[]
 #Lets do it
 for this_temporal_scale in temporal_scales:
     #This iterates over the spatial scales with info about them defined in the function.
@@ -169,23 +172,36 @@ for this_temporal_scale in temporal_scales:
             initial=year_0[row_start:row_end, col_start:col_end]
             initial=get_composition(initial, catagories)
 
+            predictions=run_model(t_matrix, initial, num_years-1)
+
             obs_all_years=validation[row_start:row_end, col_start:col_end, :]
             obs_all_years=get_composition(obs_all_years, catagories, num_years-1)
 
-            predictions=run_model(t_matrix, initial, num_years-1)
 
             predictions=apply_temporal_scale(predictions, this_temporal_scale)
             obs_all_years=apply_temporal_scale(obs_all_years, this_temporal_scale)
 
             metrics=evaluate(obs_all_years, predictions)
-            metrics=pd.DataFrame(metrics)
-            metrics['temporal_scale']=this_temporal_scale
-            metrics['spatial_scale']=this_spatial_scale
 
-            all_results.append(metrics)
-            #up the start stop y the step size
+            if np.isnan(metrics[0]['r2']):
+                print(year_0.shape)
+                print(year_0[row_start:row_end, col_start:col_end])
+                print(predictions)
+                print(row_start, row_end, col_start, col_end)
+                exit()
+            #Add in scale info for these results
+            for  i in metrics:
+                i['temporal_scale']=this_temporal_scale
+                i['spatial_scale']=this_spatial_scale
+                i['replicate']=this_replicate
+
+            all_results.extend(metrics)
+
+            #Up the indexes for the next spatial recpliate
             row_start+=step
             row_end+=step
             col_start+=step
             col_end+=step
 
+all_results=pd.DataFrame(all_results)
+all_results.to_csv('results.csv', index=False)
