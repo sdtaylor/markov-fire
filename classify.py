@@ -53,12 +53,23 @@ def stackImages(fileList):
 #print(t_matrix, t_matrix.shape)
 #Given some 2d array of catagorical data. compute the composition. essentially percent cover
 #a = 2d array, num_c=number of possible catagories
-def get_composition(a, catagories):
-    composition=[]
-    for c in catagories:
-        composition.append(np.sum(a==c))
-    composition=np.array(composition)/np.product(a.shape)
-    return(composition)
+def get_composition(a, catagories, timesteps=None):
+    if timesteps is not None:
+        total_composition=[]
+        for t in range(timesteps):
+            timestep_composition=[]
+            for c in catagories:
+                timestep_composition.append(np.sum(a[:,:,t]==c))
+            total_composition.append(timestep_composition)
+        total_composition=np.array(total_composition)/np.product(a.shape[0:2])#Divide all values by total cells to get averages for each timestep
+        total_composition=total_composition.T #years x catagories becomes catagories x years
+        return(total_composition)
+    else:
+        composition=[]
+        for c in catagories:
+            composition.append(np.sum(a==c))
+        composition=np.array(composition)/np.product(a.shape)
+        return(composition)
 
 #Run a markov model given a set of initial conditions and timesteps
 #return a timeseries of community composition
@@ -93,6 +104,9 @@ def create_spatial_scale_indexes(template_raster, sp_scales):
 #Takes catagory x year composition and compresses it using the temporal scale. 
 #ie. 20 years of data with scale=2 becomes 10 data points
 def apply_temporal_scale(composition, temporal_scale):
+    if temporal_scale==1:
+        return(composition)
+
     new_num_cols=int(np.floor(composition.shape[1] / temporal_scale))
     new_matrix=np.empty((composition.shape[0], new_num_cols))
 
@@ -101,6 +115,35 @@ def apply_temporal_scale(composition, temporal_scale):
         new_matrix[:,i]=np.mean(composition[:,cols_to_include], 1)
 
     return(new_matrix)
+
+#Various evaluation metrics
+
+#mean squared error
+def mse(observed, predicted):
+    return(np.mean((observed-predicted)**2))
+
+#Euclidean distance
+def eucl_dist(observed, predicted):
+    return(np.sqrt((observed-predicted)**2))
+
+#R^2 of the 1:1 line
+def r2(obs, pred):
+    return(1 - sum((obs - pred) ** 2) / sum((obs - np.mean(obs)) ** 2))
+
+def evaluate(obs, pred):
+    assert pred.shape == obs.shape, 'Observed and predicted shapes must match'
+
+    all_timestep_results=[]
+    #Each column is a timestep
+    for this_col in range(pred.shape[1]):
+       results_this_timestep={}
+       results_this_timestep['mse']=mse(obs[:,this_col], pred[:,this_col])
+       results_this_timestep['eucl_dist']=eucl_dist(obs[:,this_col], pred[:,this_col])
+       results_this_timestep['rs']=r2(obs[:,this_col], pred[:,this_col])
+       results_this_timestep['timestep']=this_col+1
+
+    return(all_timestep_results)
+
 ###################################################################
 ###################################################################
 test_data_dir='./data/testing/'
@@ -114,6 +157,7 @@ year_0=all_training_years[:,:,0]
 #2nd year onwards will be validation
 validation=all_training_years[:,:,1:]
 
+all_results=pd.DataFrame()
 #Lets do it
 for this_temporal_scale in temporal_scales:
     #This iterates over the spatial scales with info about them defined in the function.
@@ -122,11 +166,26 @@ for this_temporal_scale in temporal_scales:
         step=sp_info['step_size']
         #Num replicates = number of squares of size spatial_scale x spatial_scale that can fit into the raster
         for this_replicate in range(sp_info['num_replicates']):
-            initial=year_0[row_start:10, col_start:10]
+            initial=year_0[row_start:row_end, col_start:col_end]
             initial=get_composition(initial, catagories)
+
+            obs_all_years=validation[row_start:row_end, col_start:col_end, :]
+            obs_all_years=get_composition(obs_all_years, catagories, num_years-1)
+
             predictions=run_model(t_matrix, initial, num_years-1)
+
+            predictions=apply_temporal_scale(predictions, this_temporal_scale)
+            obs_all_years=apply_temporal_scale(obs_all_years, this_temporal_scale)
+
+            metrics=evaluate(obs_all_years, predictions)
+            metrics=pd.DataFrame(metrics)
+            metrics['temporal_scale']=this_temporal_scale
+            metrics['spatial_scale']=this_spatial_scale
+
+            all_results.append(metrics)
             #up the start stop y the step size
             row_start+=step
             row_end+=step
             col_start+=step
             col_end+=step
+
