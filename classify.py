@@ -8,7 +8,7 @@ testing_folder='./data/testing/'
 
 training_data=pd.read_csv('./data/training.csv')
 
-spatial_scales=[1,2,5,10,20,30,40,50]
+spatial_scales=[2,5,10,20,40,80]
 temporal_scales=[1,2,3,4,5]
 #spatial_scales=[40,50]
 #temporal_scales=[3,4,5]
