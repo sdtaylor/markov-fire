@@ -55,23 +55,12 @@ def stackImages(fileList):
 #print(t_matrix, t_matrix.shape)
 #Given some 2d array of catagorical data. compute the composition. essentially percent cover
 #a = 2d array, num_c=number of possible catagories
-def get_composition(a, catagories, timesteps=None):
-    if timesteps is not None:
-        total_composition=[]
-        for t in range(timesteps):
-            timestep_composition=[]
-            for c in catagories:
-                timestep_composition.append(np.sum(a[:,:,t]==c))
-            total_composition.append(timestep_composition)
-        total_composition=np.array(total_composition)/np.product(a.shape[0:2])#Divide all values by total cells to get averages for each timestep
-        total_composition=total_composition.T #years x catagories becomes catagories x years
-        return(total_composition)
-    else:
-        composition=[]
-        for c in catagories:
-            composition.append(np.sum(a==c))
-        composition=np.array(composition)/np.product(a.shape)
-        return(composition)
+def get_composition(a, catagories):
+    composition=[]
+    for c in catagories:
+        composition.append(np.sum(a==c))
+    composition=np.array(composition)/np.product(a.shape)
+    return(composition)
 
 #Run a markov model given a set of initial conditions and timesteps
 #return a timeseries of community composition
@@ -148,11 +137,11 @@ def evaluate(obs, pred):
 ###################################################################
 ###################################################################
 test_data_dir='./data/testing/'
-file_list=[test_data_dir+str(year)+'.tif' for year in range(2001,2014)]
+file_list=[test_data_dir+str(year)+'.tif' for year in range(2005,2014)]
 all_training_years=stackImages(file_list)
 
 #Total years in the timeseries
-num_years=13
+num_years=9
 #1st year will be used as the initial values
 year_0=all_training_years[:,:,0]
 #2nd year onwards will be validation
@@ -169,21 +158,26 @@ for this_temporal_scale in temporal_scales:
             for col_end in sp_info['col_breaks']:
                 row_start=row_end-this_spatial_scale
                 col_start=col_end-this_spatial_scale
+                row_start, row_end, col_start, col_end=0,10,0,10
 
+                #Get initial values and run model
                 initial=year_0[row_start:row_end, col_start:col_end]
                 initial=get_composition(initial, catagories)
 
                 predictions=run_model(t_matrix, initial, num_years-1)
 
+                exit()
+                #Save observed values over all years
                 obs_all_years=validation[row_start:row_end, col_start:col_end, :]
                 obs_all_years=get_composition(obs_all_years, catagories, num_years-1)
 
-
+                #Temporal averaging of both observed and predicted. 
                 predictions=apply_temporal_scale(predictions, this_temporal_scale)
                 obs_all_years=apply_temporal_scale(obs_all_years, this_temporal_scale)
 
                 metrics=evaluate(obs_all_years, predictions)
 
+                #print debug info and quit if nan's start popping up in results 
                 if np.isnan(metrics[0]['r2']):
                     print(year_0.shape)
                     print(year_0[row_start:row_end, col_start:col_end])
