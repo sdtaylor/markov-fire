@@ -111,7 +111,10 @@ def apply_temporal_scale(composition, temporal_scale):
     new_matrix=np.empty((composition.shape[0], new_num_cols))
 
     for i in range(new_num_cols):
-        cols_to_include=list(range(i*temporal_scale, (i*temporal_scale)+1))
+        if i==0:
+            cols_to_include=list(range(0, temporal_scale))
+        else:
+            cols_to_include=list(range(i*temporal_scale, (i+1)*temporal_scale))
         new_matrix[:,i]=np.mean(composition[:,cols_to_include], 1)
 
     return(new_matrix)
@@ -148,11 +151,11 @@ def evaluate(obs, pred):
 ###################################################################
 ###################################################################
 test_data_dir='./data/testing/'
-file_list=[test_data_dir+str(year)+'.tif' for year in range(2001,2014)]
+file_list=[test_data_dir+str(year)+'.tif' for year in range(2005,2014)]
 all_training_years=stackImages(file_list)
 
 #Total years in the timeseries
-num_years=13
+num_years=9
 #1st year will be used as the initial values
 year_0=all_training_years[:,:,0]
 #2nd year onwards will be validation
