@@ -177,33 +177,42 @@ for this_temporal_scale in temporal_scales:
                 initial=year_0[row_start:row_end, col_start:col_end]
                 initial=get_composition(initial, catagories)
 
-                predictions=run_model(t_matrix, initial, num_years-1)
 
-                #Save observed values over all years
+                #The observed/actual values
                 obs_all_years=validation[row_start:row_end, col_start:col_end, :]
                 obs_all_years=get_composition(obs_all_years, catagories, num_years-1)
-
-                #Temporal averaging of both observed and predicted.
-                predictions=apply_temporal_scale(predictions, this_temporal_scale)
                 obs_all_years=apply_temporal_scale(obs_all_years, this_temporal_scale)
 
-                metrics=evaluate(obs_all_years, predictions)
+                #Make predictions for the actual markov model and a naive
+                #model and process/store their results. 
+                for model_type in ['markov','naive']:
+                    if model_type=='markov':
+                        predictions=run_model(t_matrix, initial, num_years-1)
+                    else:
+                        predictions=np.zeros((len(initial), num_years-1))
+                        for i in range(num_years-1):
+                            predictions[:,i]=initial
 
-                #print debug info and quit if nan's start popping up in results 
-                if np.isnan(metrics[0]['r2']):
-                    print(year_0.shape)
-                    print(year_0[row_start:row_end, col_start:col_end])
-                    print(predictions)
-                    print(row_start, row_end, col_start, col_end)
-                    exit()
-                #Add in scale info for these results
-                for  i in metrics:
-                    i['temporal_scale']=this_temporal_scale
-                    i['spatial_scale']=this_spatial_scale
-                    i['replicate']=replicate
+                    predictions=apply_temporal_scale(predictions, this_temporal_scale)
+                    metrics=evaluate(obs_all_years, predictions)
+
+                    #print debug info and quit if nan's start popping up in results 
+                    if np.isnan(metrics[0]['r2']):
+                        print(year_0.shape)
+                        print(year_0[row_start:row_end, col_start:col_end])
+                        print(predictions)
+                        print(row_start, row_end, col_start, col_end)
+                        exit()
+                    #Add in info for these results
+                    for  i in metrics:
+                        i['temporal_scale']=this_temporal_scale
+                        i['spatial_scale']=this_spatial_scale
+                        i['replicate']=replicate
+                        i['model_type']=model_type
+
+                    all_results.extend(metrics)
 
                 replicate+=1
-                all_results.extend(metrics)
 
 all_results=pd.DataFrame(all_results)
 all_results.to_csv('results.csv', index=False)
