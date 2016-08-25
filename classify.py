@@ -130,7 +130,10 @@ def eucl_dist(observed, predicted):
     return(np.sqrt(  np.sum( (observed-predicted)**2) ) )
 
 #R^2 of the 1:1 line
+#log transform because Marks & Muller-Landau 2007 10.1126/science.1140190 
 def r2(obs, pred):
+    obs=np.log(obs+0.001)
+    pred=np.log(pred+0.001)
     return(1 - sum((obs - pred) ** 2) / sum((obs - np.mean(obs)) ** 2))
 
 def evaluate(obs, pred):
@@ -198,6 +201,7 @@ for this_temporal_scale in temporal_scales:
 
                     #print debug info and quit if nan's start popping up in results 
                     if np.isnan(metrics[0]['r2']):
+                        print('NAs in results!')
                         print(year_0.shape)
                         print(year_0[row_start:row_end, col_start:col_end])
                         print(predictions)
