@@ -12,18 +12,24 @@ file_list=file_list[!grepl('xml', file_list)]
 file_list=file_list[!grepl('ovr', file_list)]
 
 
-training_area=readOGR('/home/shawn/projects/markov-fire/gis/', 'training_area')
-testing_area=readOGR('/home/shawn/projects/markov-fire/gis/', 'testing_area')
+study_area=readOGR('/home/shawn/projects/markov-fire/gis/', 'study_area')
 
-for(this_year in 2001:2013){
+#Crop training years
+for(this_year in 2001:2004){
   file_path=grep(paste0('A',this_year), file_list, value=TRUE)
   whole_raster=raster::raster(file_path)
-  train=crop(whole_raster, training_area)
-  test=crop(whole_raster, testing_area)
+  cropped_raster=crop(whole_raster, study_area)
+
+  filename=paste0(this_year,'.tif')
+  writeRaster(cropped_raster, paste0('./data/training/',filename))
+}
+
+#Crop testing years
+for(this_year in 2005:2013){
+  file_path=grep(paste0('A',this_year), file_list, value=TRUE)
+  whole_raster=raster::raster(file_path)
+  cropped_raster=crop(whole_raster, study_area)
   
   filename=paste0(this_year,'.tif')
-  writeRaster(train, paste0('./data/training/',filename))
-  writeRaster(test, paste0('./data/testing/',filename))
-  
-  
+  writeRaster(cropped_raster, paste0('./data/testing/',filename))
 }
