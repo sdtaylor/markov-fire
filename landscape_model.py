@@ -164,7 +164,7 @@ train_data_dir='./data/training/'
 
 #Spatial scales are original 500m grid cells to a side. 
 spatial_scales=[2,5,10,20,40,80]
-temporal_scales=[1,2,3,4,5]
+temporal_scales=[1,2,4,8]
 
 #MCD12Q1 type 1 is 14 cover classes
 catagories=range(1,15)
@@ -177,7 +177,7 @@ training_file_list = [train_data_dir+str(year)+'.tif' for year in range(2001,200
 training_timeseries = stackImages(training_file_list)
 training_data = array_to_model_input_fitting(training_timeseries)
 
-model = LogisticRegression()
+model = LogisticRegression(multi_class='multinomial', solver='lbfgs')
 model.fit(training_data.drop('t1',1), training_data['t1'])
 
 ############################################################
@@ -244,4 +244,4 @@ for this_spatial_scale, sp_info in create_spatial_scale_indexes(area_shape, spat
                 spatial_replicate+=1
 
 all_results=pd.DataFrame(all_results)
-all_results.to_csv('./results/landscape_fire_model.csv', index=False)
+all_results.to_csv('./results/idaho_fire_results.csv', index=False)
