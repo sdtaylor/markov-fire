@@ -184,10 +184,10 @@ catagories=range(1,15)
 ##########################################################
 #Build the training model
 
-training_file_list = [train_data_dir+str(year)+'.tif' for year in range(2001,2005)]
+training_file_list = [train_data_dir+str(year)+'.tif' for year in range(2001,2008)]
 
-training_timeseries = stackImages(training_file_list)
-training_data = array_to_model_input_fitting(training_timeseries)
+all_training_years = stackImages(training_file_list)
+training_data = array_to_model_input_fitting(all_training_years)
 
 model = LogisticRegression(multi_class='multinomial', solver='lbfgs')
 model.fit(training_data.drop('t1',1), training_data['t1'])
@@ -196,12 +196,10 @@ model.fit(training_data.drop('t1',1), training_data['t1'])
 #Make predictions of the testinig data using only the initial year as input
 #Also accumulate observations of the rest of the data.
 
-testing_file_list=[test_data_dir+str(year)+'.tif' for year in range(2005,2014)]
-all_training_years=stackImages(testing_file_list)
-#1st year will be used as the initial values
-initial_year=all_training_years[:,:,0]
-#2nd year onwards will be validation
-observations=all_training_years[:,:,1:]
+testing_file_list=[test_data_dir+str(year)+'.tif' for year in range(2008,2014)]
+observations=stackImages(testing_file_list)
+#initial year is the  last of the training timeseries
+initial_year=all_training_years[:,:,-1]
 #A matching array to hold  predictions
 predictions = np.zeros_like(observations)
 
@@ -214,7 +212,7 @@ area_shape=initial_year.shape
 raster_template=gdal.Open(train_data_dir+'2001.tif')
 
 this_year_prediction=initial_year.copy()
-for year_i, year in enumerate(range(2006,2014)):
+for year_i, year in enumerate(range(2008,2014)):
     #this_year_prediction = model.predict(array_to_model_input(this_year_prediction)).reshape(area_shape)
     this_year_prediction = model.predict(array_to_model_input(this_year_prediction))
     this_year_prediction = model_output_to_array(this_year_prediction, desired_shape=area_shape)
