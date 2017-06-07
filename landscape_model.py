@@ -58,6 +58,15 @@ def extract_predictor_values(image, row, col, n):
 
     return(all_pixel_data)
 
+#Instead of choosing the classes with the largest probability,
+#randomly choose a classes with weights based on the class probabilites
+def stochastic_predict(prob_matrix, classes):
+    pred=np.zeros(prob_matrix.shape[0])
+    #For each observation (row). independently and randomly choose a class based on the probabilites
+    for row in range(prob_matrix.shape[0]):
+        pred[row] = np.random.choice(classes, p=prob_matrix[row,])
+    return(pred)
+
 #Extract and organize a timeseries of arrays for model fitting
 def array_to_model_input_fitting(a):
     array_data=[]
@@ -214,7 +223,8 @@ raster_template=gdal.Open(train_data_dir+'2001.tif')
 this_year_prediction=initial_year.copy()
 for year_i, year in enumerate(range(2008,2014)):
     #this_year_prediction = model.predict(array_to_model_input(this_year_prediction)).reshape(area_shape)
-    this_year_prediction = model.predict(array_to_model_input(this_year_prediction))
+    this_year_prediction = model.predict_proba(array_to_model_input(this_year_prediction))
+    this_year_prediction = stochastic_predict(this_year_prediction, model.classes_)
     this_year_prediction = model_output_to_array(this_year_prediction, desired_shape=area_shape)
     predictions[:,:,year_i] = this_year_prediction
     write_raster(this_year_prediction, template=raster_template, filename='./results/'+str(year)+'_prediction.tif')
