@@ -4,6 +4,18 @@ import numpy as np
 import gdal
 from sklearn.linear_model import LogisticRegression
 
+######################################################################################
+#Write out a raster from a numpy array.
+#Template: a raster file on disk to use for pixel size, height/width, and spatial reference.
+#array: array to write out. Should be an exact match in height/width as the template.
+#filename: file name of new raster
+#inspired by: http://geoexamples.blogspot.com/2012/12/raster-calculations-with-gdal-and-numpy.html
+def write_raster(array, template, filename):
+    driver = gdal.GetDriverByName("GTiff")
+    raster_out = driver.Create(filename, template.RasterXSize, template.RasterYSize, 1, template.GetRasterBand(1).DataType)
+    gdalnumeric.CopyDatasetInfo(template,raster_out)
+    bandOut=raster_out.GetRasterBand(1)
+    gdalnumeric.BandWriteArray(bandOut, array)
 
 #Read in a list of rasters and stack them into a single array. (rows x column x numRasters)
 def stackImages(fileList):
@@ -197,12 +209,17 @@ predictions = np.zeros_like(observations)
 num_years=observations.shape[2]
 area_shape=initial_year.shape
 
+#The width, height, CRS, and pixel size of the template will be
+#used to write rasters that were modified using numpy arrays
+raster_template=gdal.Open(train_data_dir+'2001.tif')
+
 this_year_prediction=initial_year.copy()
-for year in range(num_years-1):
+for year_i, year in enumerate(range(2006,2014)):
     #this_year_prediction = model.predict(array_to_model_input(this_year_prediction)).reshape(area_shape)
     this_year_prediction = model.predict(array_to_model_input(this_year_prediction))
     this_year_prediction = model_output_to_array(this_year_prediction, desired_shape=area_shape)
-    predictions[:,:,year] = this_year_prediction
+    predictions[:,:,year_i] = this_year_prediction
+    write_raster(this_year_prediction, template=raster_template, filename='./results/'+str(year)+'_prediction.tif')
 
 ################################################################
 #Upscale the observations and predictions and score the metrics
@@ -229,15 +246,16 @@ for this_spatial_scale, sp_info in create_spatial_scale_indexes(area_shape, spat
                     replicate_predictions =predictions[row_start:row_end, col_start:col_end, time_start:time_end]
 
                     #Convert to percent cover of catagories and score
-                    replicate_observations=get_composition(replicate_observations, catagories)
-                    replicate_predictions=get_composition(replicate_predictions, catagories)
+                    replicate_observations=get_composition(replicate_observations, [10])
+                    replicate_predictions=get_composition(replicate_predictions, [10])
 
                     i={}
                     i['temporal_scale'] = this_temporal_scale
                     i['spatial_scale'] = this_spatial_scale
                     i['temporal_replicate'] = temporal_replicate
                     i['spatial_replicate'] = spatial_replicate
-                    i['sum_square'] = np.sum((replicate_observations - replicate_predictions)**2)
+                    i['percent_class_10_predicted'] = replicate_predictions[0]
+                    i['percent_class_10_observed'] = replicate_observations[0]
 
                     all_results.append(i)
                     temporal_replicate+=1
