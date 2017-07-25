@@ -97,7 +97,7 @@ for(loss_cost in possible_loss_costs){
 r$value = with(r, (expense_max - expense_forecast) / (expense_max - expense_perfect))
 r$this_scale = with(r, paste0('space_',spatial_scale,'_time_',temporal_scale))
 
-ggplot(r, aes(x=a, y=value, color=as.factor(this_scale), group=as.factor(this_scale))) + 
-  geom_line() +
+ggplot(r, aes(x=a, y=value, color=as.factor(spatial_scale), group=as.factor(this_scale))) + 
+  geom_line(aes(linetype=as.factor(temporal_scale))) +
   ylim(0,1) 
   facet_grid(~temporal_scale)
