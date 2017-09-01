@@ -11,7 +11,7 @@ possible_loss_costs = 10 / seq(0.11, 0.99, 0.01)
 
 
 scaled_data_file = 'results/idaho_fire_scaled_results.csv'
-cost_loss_value_file = 'results/idaho_fire_scaled_results.csv'
+cost_loss_value_file = 'results/idaho_fire_cost_loss_results.csv'
 #############################################################
 
 forecast_rasters = list.files('./results', pattern='*.tif', full.names = TRUE)
