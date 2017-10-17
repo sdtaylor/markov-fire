@@ -40,19 +40,17 @@ for(this_spatial_scale in spatial_scales){
   for(this_temporal_scale in temporal_scales){
     if(this_spatial_scale > 1){
       forecasts_upscaled = raster::aggregate(forecasts, fact=this_spatial_scale, fun=max)
-      observations_upscaled = raster::aggregate(observations, fact=this_spatial_scale, fun=max)
       #Resample so it retains the original dimensions and cell numbers
+      forecasts_upscaled = raster::resample(forecasts_upscaled, forecasts, method='ngb')
     } else {
       forecasts_upscaled = forecasts
-      observations_upscaled = observations
     }
     
     if(this_temporal_scale > 1){
       forecasts_upscaled    = aggregate_temporally(forecasts_upscaled, fact = this_temporal_scale, keep_original_layer_count = FALSE)
-      observations_upscaled = aggregate_temporally(observations_upscaled, fact = this_temporal_scale, keep_original_layer_count = FALSE)
     } 
     
-    this_scale_data = data.frame(observed = as.vector(observations_upscaled),
+    this_scale_data = data.frame(observed = as.vector(observations),
                                  predicted = as.vector(forecasts_upscaled))
     
     this_scale_data$spatial_scale = this_spatial_scale
