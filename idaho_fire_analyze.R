@@ -28,8 +28,8 @@ total_cells = prod(dim(forecasts))
 
 #Convert to yes or no for class 10
 is_class_10 = function(x){(x==10)*1}
-forecasts = calc(forecasts, is_class_10)
-observations = calc(observations, is_class_10)
+forecasts = raster::calc(forecasts, is_class_10)
+observations = raster::calc(observations, is_class_10)
 
 
 #############################################################################
@@ -39,8 +39,8 @@ scaled_data = data.frame()
 for(this_spatial_scale in spatial_scales){
   for(this_temporal_scale in temporal_scales){
     if(this_spatial_scale > 1){
-      forecasts_upscaled = aggregate(forecasts, fact=this_spatial_scale, fun=max)
-      observations_upscaled = aggregate(observations, fact=this_spatial_scale, fun=max)
+      forecasts_upscaled = raster::aggregate(forecasts, fact=this_spatial_scale, fun=max)
+      observations_upscaled = raster::aggregate(observations, fact=this_spatial_scale, fun=max)
       #Resample so it retains the original dimensions and cell numbers
     } else {
       forecasts_upscaled = forecasts
@@ -78,9 +78,9 @@ for(loss_cost in possible_loss_costs){
   for(this_spatial_scale in spatial_scales){
     for(this_temporal_scale in temporal_scales){
       if(this_spatial_scale > 1){
-        forecasts_upscaled = aggregate(forecasts, fact=this_spatial_scale, fun=max)
+        forecasts_upscaled = raster::aggregate(forecasts, fact=this_spatial_scale, fun=max)
         #Resample so it retains the original dimensions and cell numbers
-        forecasts_upscaled = resample(forecasts_upscaled, forecasts, method='ngb')
+        forecasts_upscaled = raster::resample(forecasts_upscaled, forecasts, method='ngb')
       } else {
         forecasts_upscaled = forecasts
       }
