@@ -7,7 +7,7 @@ temporal_scales = c(1,2,3,6)
 
 #The per year per cell costs
 treatment_cost = 10
-possible_loss_costs = 10 / seq(0.11, 0.99, 0.01)
+possible_loss_costs = 10 / seq(0.01, 0.99, 0.001)
 
 
 scaled_data_file = 'results/idaho_fire_scaled_results.csv'
