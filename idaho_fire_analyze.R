@@ -2,7 +2,7 @@ library(raster)
 library(tidyverse)
 source('utils.R')
 
-spatial_scales = c(1,2,5)
+spatial_scales = c(1,2,4)
 temporal_scales = c(1,2,3,6)
 
 #The per year per cell costs
