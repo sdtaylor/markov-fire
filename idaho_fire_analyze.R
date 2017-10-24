@@ -7,7 +7,7 @@ temporal_scales = c(1,2,3,6)
 
 #The per year per cell costs
 treatment_cost = 10
-possible_loss_costs = 10 / seq(0.01, 0.99, 0.001)
+possible_loss_costs = 10 / seq(0.01, 0.7, 0.01)
 
 
 scaled_data_file = 'results/idaho_fire_scaled_results.csv'
@@ -28,47 +28,51 @@ total_cells = prod(dim(forecasts))
 
 #Convert to yes or no for class 10
 is_class_10 = function(x){(x==10)*1}
-forecasts = raster::calc(forecasts, is_class_10)
+#forecasts = raster::calc(forecasts, is_class_10)
 observations = raster::calc(observations, is_class_10)
 
 
 #############################################################################
 #Get csv of predictions/observations at all scales
-
-scaled_data = data.frame()
-for(this_spatial_scale in spatial_scales){
-  for(this_temporal_scale in temporal_scales){
-    if(this_spatial_scale > 1){
-      forecasts_upscaled = raster::aggregate(forecasts, fact=this_spatial_scale, fun=max)
-      #Resample so it retains the original dimensions and cell numbers
-      forecasts_upscaled = raster::resample(forecasts_upscaled, forecasts, method='ngb')
-    } else {
-      forecasts_upscaled = forecasts
-    }
-    
-    if(this_temporal_scale > 1){
-      forecasts_upscaled    = aggregate_temporally(forecasts_upscaled, fact = this_temporal_scale, keep_original_layer_count = FALSE)
-    } 
-    
-    this_scale_data = data.frame(observed = as.vector(observations),
-                                 predicted = as.vector(forecasts_upscaled))
-    
-    this_scale_data$spatial_scale = this_spatial_scale
-    this_scale_data$temporal_scale = this_temporal_scale
-    this_scale_data$cell_id = 1:nrow(this_scale_data)
-    
-    scaled_data = scaled_data %>%
-      bind_rows(this_scale_data)
-    
-  }
-}
-
-write_csv(scaled_data, scaled_data_file)
+# 
+# scaled_data = data.frame()
+# for(this_spatial_scale in spatial_scales){
+#   for(this_temporal_scale in temporal_scales){
+#     if(this_spatial_scale > 1){
+#       forecasts_upscaled = raster::aggregate(forecasts, fact=this_spatial_scale, fun=max)
+#       #Resample so it retains the original dimensions and cell numbers
+#       forecasts_upscaled = raster::resample(forecasts_upscaled, forecasts, method='ngb')
+#     } else {
+#       forecasts_upscaled = forecasts
+#     }
+#     
+#     if(this_temporal_scale > 1){
+#       forecasts_upscaled    = aggregate_temporally(forecasts_upscaled, fact = this_temporal_scale, keep_original_layer_count = FALSE)
+#     } 
+#     
+#     this_scale_data = data.frame(observed = as.vector(observations),
+#                                  predicted = as.vector(forecasts_upscaled))
+#     
+#     this_scale_data$spatial_scale = this_spatial_scale
+#     this_scale_data$temporal_scale = this_temporal_scale
+#     this_scale_data$cell_id = 1:nrow(this_scale_data)
+#     
+#     scaled_data = scaled_data %>%
+#       bind_rows(this_scale_data)
+#     
+#   }
+# }
+# 
+# write_csv(scaled_data, scaled_data_file)
 
 ###############################################################################
 #Calculate cost/loss model curve
 cost_loss_values=data.frame()
 for(loss_cost in possible_loss_costs){
+  # Get a binary prediction map based on this cost/loss ratio
+  a = treatment_cost/loss_cost
+  forecasts_binary = raster::calc(forecasts, function(x, threshold){(x>=0.9)*1})
+  
   smallest_grain_perfect = (sum(as.vector(observations)) * treatment_cost) / total_cells
   smallest_grain_cost_never = (sum(as.vector(observations)) * loss_cost) / total_cells
   smallest_grain_cost_maximimum = min(treatment_cost, smallest_grain_cost_never)
@@ -76,11 +80,11 @@ for(loss_cost in possible_loss_costs){
   for(this_spatial_scale in spatial_scales){
     for(this_temporal_scale in temporal_scales){
       if(this_spatial_scale > 1){
-        forecasts_upscaled = raster::aggregate(forecasts, fact=this_spatial_scale, fun=max)
+        forecasts_upscaled = raster::aggregate(forecasts_binary, fact=this_spatial_scale, fun=max)
         #Resample so it retains the original dimensions and cell numbers
-        forecasts_upscaled = raster::resample(forecasts_upscaled, forecasts, method='ngb')
+        forecasts_upscaled = raster::resample(forecasts_upscaled, forecasts_binary, method='ngb')
       } else {
-        forecasts_upscaled = forecasts
+        forecasts_upscaled = forecasts_binary
       }
   
       if(this_temporal_scale > 1){
