@@ -220,54 +220,11 @@ area_shape=initial_year.shape
 #used to write rasters that were modified using numpy arrays
 raster_template=gdal.Open(train_data_dir+'2001.tif')
 
+# Do an auto-regressive model, writing out predictions for each year
 this_year_prediction=initial_year.copy()
 for year_i, year in enumerate(range(2008,2014)):
-    #this_year_prediction = model.predict(array_to_model_input(this_year_prediction)).reshape(area_shape)
-    this_year_prediction = model.predict_proba(array_to_model_input(this_year_prediction))
-    this_year_prediction = stochastic_predict(this_year_prediction, model.classes_)
+    this_year_prediction = model.predict(array_to_model_input(this_year_prediction))
     this_year_prediction = model_output_to_array(this_year_prediction, desired_shape=area_shape)
     predictions[:,:,year_i] = this_year_prediction
     write_raster(this_year_prediction, template=raster_template, filename='./results/'+str(year)+'_prediction.tif')
 
-################################################################
-#Upscale the observations and predictions and score the metrics
-
-all_results=[]
-#This iterates over the spatial scales with info about them defined in the function.
-for this_spatial_scale, sp_info in create_spatial_scale_indexes(area_shape, spatial_scales).items():
-    for this_temporal_scale, time_info in create_temporal_scale_indexes(num_years, temporal_scales).items():
-        spatial_replicate=0
-        #Num replicates = number of squares of size spatial_scale x spatial_scale that can fit into the raster
-        for row_end in sp_info['row_breaks']:
-            for col_end in sp_info['col_breaks']:
-                temporal_replicate=0
-                for time_end in time_info['time_breaks']:
-                    row_start = row_end-this_spatial_scale
-                    col_start = col_end-this_spatial_scale
-                    time_start = time_end-this_temporal_scale
-                    #Send the end point to the last index in the array if at the
-                    #end of the timeseries
-                    #time_end = time_start if time_end == num_years else time_end
-
-                    #The observed and predicted values of this spatiotemporal cell
-                    replicate_observations=observations[row_start:row_end, col_start:col_end, time_start:time_end]
-                    replicate_predictions =predictions[row_start:row_end, col_start:col_end, time_start:time_end]
-
-                    #Convert to percent cover of catagories and score
-                    replicate_observations=get_composition(replicate_observations, [10])
-                    replicate_predictions=get_composition(replicate_predictions, [10])
-
-                    i={}
-                    i['temporal_scale'] = this_temporal_scale
-                    i['spatial_scale'] = this_spatial_scale
-                    i['temporal_replicate'] = temporal_replicate
-                    i['spatial_replicate'] = spatial_replicate
-                    i['percent_class_10_predicted'] = replicate_predictions[0]
-                    i['percent_class_10_observed'] = replicate_observations[0]
-
-                    all_results.append(i)
-                    temporal_replicate+=1
-                spatial_replicate+=1
-
-all_results=pd.DataFrame(all_results)
-all_results.to_csv('./results/idaho_fire_results.csv', index=False)
